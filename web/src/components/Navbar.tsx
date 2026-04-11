@@ -1,8 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
+import Link from "next/link";
 
-const links = ["Servicios", "Barberos", "Galería", "Contacto"];
+const navLinks: { label: string; href: string }[] = [
+  { label: "Servicios", href: "/#servicios" },
+  { label: "Barberos", href: "/barberos" },
+  { label: "Galería", href: "#galería" },
+  { label: "Contacto", href: "#contacto" },
+];
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -58,10 +64,10 @@ export default function Navbar() {
         }}
         className="hidden-mobile"
       >
-        {links.map((l) => (
-          <li key={l}>
-            <a
-              href={`#${l.toLowerCase()}`}
+        {navLinks.map(({ label, href }) => (
+          <li key={label}>
+            <Link
+              href={href}
               style={{
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontWeight: 600,
@@ -79,35 +85,51 @@ export default function Navbar() {
                 ((e.target as HTMLElement).style.color = "var(--gray-light)")
               }
             >
-              {l}
-            </a>
+              {label}
+            </Link>
           </li>
         ))}
       </ul>
 
-      {/* CTA */}
-      <a
-        href="#reservar"
-        className="hidden-mobile"
-        style={{
-          fontFamily: "'Barlow Condensed', sans-serif",
-          fontWeight: 700,
-          fontSize: "0.8rem",
-          letterSpacing: "0.2em",
-          textTransform: "uppercase",
-          color: "var(--black)",
-          background: "var(--acid)",
-          padding: "0.5rem 1.4rem",
-          textDecoration: "none",
-          transition: "opacity 0.2s",
-        }}
-        onMouseEnter={(e) =>
-          ((e.target as HTMLElement).style.opacity = "0.85")
-        }
-        onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "1")}
-      >
-        Reservar
-      </a>
+      {/* Auth + CTA */}
+      <div className="hidden-mobile" style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+        <Link
+          href="/auth/login"
+          style={{
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontWeight: 600,
+            fontSize: "0.8rem",
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            color: "var(--gray-light)",
+            textDecoration: "none",
+            transition: "color 0.2s",
+          }}
+          onMouseEnter={(e) => ((e.target as HTMLElement).style.color = "var(--white)")}
+          onMouseLeave={(e) => ((e.target as HTMLElement).style.color = "var(--gray-light)")}
+        >
+          Iniciar sesión
+        </Link>
+        <Link
+          href="/auth/registro"
+          style={{
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontWeight: 700,
+            fontSize: "0.8rem",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "var(--black)",
+            background: "var(--acid)",
+            padding: "0.5rem 1.4rem",
+            textDecoration: "none",
+            transition: "opacity 0.2s",
+          }}
+          onMouseEnter={(e) => ((e.target as HTMLElement).style.opacity = "0.85")}
+          onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "1")}
+        >
+          Registrarse
+        </Link>
+      </div>
 
       {/* Mobile toggle */}
       <button
@@ -140,10 +162,10 @@ export default function Navbar() {
             gap: "2.5rem",
           }}
         >
-          {links.map((l) => (
-            <a
-              key={l}
-              href={`#${l.toLowerCase()}`}
+          {navLinks.map(({ label, href }) => (
+            <Link
+              key={label}
+              href={href}
               onClick={() => setOpen(false)}
               style={{
                 fontFamily: "'Bebas Neue', sans-serif",
@@ -153,11 +175,24 @@ export default function Navbar() {
                 letterSpacing: "0.05em",
               }}
             >
-              {l}
-            </a>
+              {label}
+            </Link>
           ))}
-          <a
-            href="#reservar"
+          <Link
+            href="/auth/login"
+            onClick={() => setOpen(false)}
+            style={{
+              fontFamily: "'Bebas Neue', sans-serif",
+              fontSize: "3rem",
+              color: "var(--gray-light)",
+              textDecoration: "none",
+              letterSpacing: "0.05em",
+            }}
+          >
+            Iniciar sesión
+          </Link>
+          <Link
+            href="/auth/registro"
             onClick={() => setOpen(false)}
             style={{
               fontFamily: "'Barlow Condensed', sans-serif",
@@ -171,8 +206,8 @@ export default function Navbar() {
               textDecoration: "none",
             }}
           >
-            Reservar
-          </a>
+            Registrarse
+          </Link>
         </div>
       )}
 

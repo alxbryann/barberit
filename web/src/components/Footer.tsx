@@ -1,5 +1,13 @@
 "use client";
 import { Share2, MapPin, Clock } from "lucide-react";
+import Link from "next/link";
+
+const footerLinks: { label: string; href: string }[] = [
+  { label: "Servicios", href: "/#servicios" },
+  { label: "Barberos", href: "/barberos" },
+  { label: "Galería", href: "#galería" },
+  { label: "Reservar", href: "/#reservar" },
+];
 
 export default function Footer() {
   return (
@@ -94,10 +102,10 @@ export default function Footer() {
             Links
           </h4>
           <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            {["Servicios", "Barberos", "Galería", "Reservar"].map((l) => (
-              <li key={l}>
-                <a
-                  href={`#${l.toLowerCase()}`}
+            {footerLinks.map(({ label, href }) => (
+              <li key={label}>
+                <Link
+                  href={href}
                   style={{
                     fontFamily: "'Barlow', sans-serif",
                     fontSize: "0.9rem",
@@ -112,8 +120,8 @@ export default function Footer() {
                     ((e.target as HTMLElement).style.color = "var(--gray-light)")
                   }
                 >
-                  {l}
-                </a>
+                  {label}
+                </Link>
               </li>
             ))}
           </ul>

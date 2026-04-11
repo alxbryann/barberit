@@ -257,7 +257,7 @@ export default function Hero() {
               el.style.color = "var(--white)";
             }}
           >
-            Ver servicios
+            ¿Cómo funciona?
           </a>
         </div>
       </div>

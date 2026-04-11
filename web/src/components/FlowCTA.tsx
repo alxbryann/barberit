@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 export default function FlowCTA() {
   return (
     <section
@@ -143,71 +145,38 @@ export default function FlowCTA() {
           </h3>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-            <input
-              type="text"
-              placeholder="Tu nombre"
+            <Link
+              href="/barberos"
               style={{
-                background: "var(--gray)",
-                border: "1px solid var(--gray)",
-                color: "var(--white)",
-                fontFamily: "'Barlow', sans-serif",
-                fontSize: "0.9rem",
-                padding: "0.75rem 1rem",
-                outline: "none",
+                display: "block",
+                textAlign: "center",
+                fontFamily: "'Barlow Condensed', sans-serif",
+                fontWeight: 700,
+                fontSize: "0.85rem",
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color: "var(--acid)",
+                background: "transparent",
+                border: "1px solid var(--acid)",
+                padding: "0.85rem 1rem",
+                textDecoration: "none",
                 width: "100%",
-                transition: "border-color 0.2s",
+                boxSizing: "border-box",
+                transition: "background 0.2s, color 0.2s",
               }}
-              onFocus={(e) =>
-                ((e.target as HTMLInputElement).style.borderColor =
-                  "var(--acid)")
-              }
-              onBlur={(e) =>
-                ((e.target as HTMLInputElement).style.borderColor =
-                  "var(--gray)")
-              }
-            />
-            <input
-              type="tel"
-              placeholder="WhatsApp"
-              style={{
-                background: "var(--gray)",
-                border: "1px solid var(--gray)",
-                color: "var(--white)",
-                fontFamily: "'Barlow', sans-serif",
-                fontSize: "0.9rem",
-                padding: "0.75rem 1rem",
-                outline: "none",
-                width: "100%",
-                transition: "border-color 0.2s",
+              onMouseEnter={(e) => {
+                const el = e.currentTarget;
+                el.style.background = "var(--acid)";
+                el.style.color = "var(--black)";
               }}
-              onFocus={(e) =>
-                ((e.target as HTMLInputElement).style.borderColor =
-                  "var(--acid)")
-              }
-              onBlur={(e) =>
-                ((e.target as HTMLInputElement).style.borderColor =
-                  "var(--gray)")
-              }
-            />
-            <select
-              style={{
-                background: "var(--gray)",
-                border: "1px solid var(--gray)",
-                color: "var(--gray-light)",
-                fontFamily: "'Barlow', sans-serif",
-                fontSize: "0.9rem",
-                padding: "0.75rem 1rem",
-                outline: "none",
-                width: "100%",
-                cursor: "pointer",
+              onMouseLeave={(e) => {
+                const el = e.currentTarget;
+                el.style.background = "transparent";
+                el.style.color = "var(--acid)";
               }}
             >
-              <option value="">Elige barbero</option>
-              <option>Mateo Villa — El Fino</option>
-              <option>Carlos Rey — El Duque</option>
-              <option>Andrés Paz — El Calvo</option>
-              <option>Juan Mora — El Mago</option>
-            </select>
+              Catálogo de barberos
+            </Link>
             <button
               style={{
                 background: "var(--acid)",
@@ -237,24 +206,6 @@ export default function FlowCTA() {
               Confirmar turno
             </button>
           </div>
-
-          <p
-            style={{
-              fontFamily: "'Barlow', sans-serif",
-              fontSize: "0.75rem",
-              color: "var(--gray-mid)",
-              marginTop: "1rem",
-              textAlign: "center",
-            }}
-          >
-            También por WhatsApp:{" "}
-            <a
-              href="#"
-              style={{ color: "var(--acid)", textDecoration: "none" }}
-            >
-              +57 300 000 0000
-            </a>
-          </p>
         </div>
       </div>
 

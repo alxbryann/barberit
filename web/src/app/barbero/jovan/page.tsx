@@ -1,7 +1,9 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { ChevronLeft, Star, Scissors, Clock, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, Star, Scissors, Clock, CheckCircle2, User, LogIn } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 // ─── Data ───────────────────────────────────────────────────────────────────
 
@@ -27,16 +29,18 @@ const TIMES_EVENING = ["17:00", "17:30", "18:00", "18:30", "19:00"];
 
 const BLOCKED = ["09:30", "10:30", "13:30", "17:00", "17:30"];
 
+// ID del barbero Jovan en Supabase (slug: jovan)
+const JOVAN_SLUG = "jovan";
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function JovanProfile() {
+  const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const tryPlay = () => {
-      v.play().catch(() => {});
-    };
+    const tryPlay = () => { v.play().catch(() => {}); };
     tryPlay();
     v.addEventListener("loadeddata", tryPlay);
     return () => v.removeEventListener("loadeddata", tryPlay);
@@ -46,12 +50,68 @@ export default function JovanProfile() {
   const [selectedDay, setSelectedDay] = useState<number | null>(1);
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [reservaLoading, setReservaLoading] = useState(false);
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUser({ id: data.user.id, email: data.user.email ?? "" });
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) setUser({ id: session.user.id, email: session.user.email ?? "" });
+      else setUser(null);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const service = SERVICES.find((s) => s.id === selectedService);
   const day = selectedDay !== null ? DAYS[selectedDay] : null;
 
   function fmt(price: number) {
     return price.toLocaleString("es-CO");
+  }
+
+  async function handleConfirmar() {
+    if (!selectedService || selectedDay === null || !selectedTime) return;
+
+    // Si no está logueado, redirigir a login
+    if (!user) {
+      router.push("/auth/login");
+      return;
+    }
+
+    setReservaLoading(true);
+
+    // Buscar el barbero por slug
+    const { data: barbero } = await supabase
+      .from("barberos")
+      .select("id")
+      .eq("slug", JOVAN_SLUG)
+      .single();
+
+    if (!barbero) {
+      setReservaLoading(false);
+      return;
+    }
+
+    // Fecha real del día seleccionado (simplificado con año actual)
+    const d = DAYS[selectedDay];
+    const year = new Date().getFullYear();
+    const monthMap: Record<string, string> = { ENE:"01", FEB:"02", MAR:"03", ABR:"04", MAY:"05", JUN:"06", JUL:"07", AGO:"08", SEP:"09", OCT:"10", NOV:"11", DIC:"12" };
+    const month = monthMap[d.month] || "12";
+    const fecha = `${year}-${month}-${d.label.padStart(2,"0")}`;
+
+    await supabase.from("reservas").insert({
+      cliente_id: user.id,
+      barbero_id: barbero.id,
+      fecha,
+      hora: selectedTime,
+      precio: service?.price,
+      estado: "pendiente",
+    });
+
+    setReservaLoading(false);
+    setConfirmed(true);
   }
 
   if (confirmed) {
@@ -520,10 +580,24 @@ export default function JovanProfile() {
           </div>
         </div>
 
+        {/* Auth notice */}
+        {!user && selectedService && selectedDay !== null && selectedTime && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: "var(--dark2)", border: "1px solid var(--gray)", padding: "0.9rem 1rem", marginBottom: "0.75rem" }}>
+            <LogIn size={14} color="var(--acid)" />
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", letterSpacing: "0.05em", color: "var(--gray-light)" }}>
+              Debes{" "}
+              <Link href="/auth/login" style={{ color: "var(--acid)", textDecoration: "none" }}>iniciar sesión</Link>
+              {" "}o{" "}
+              <Link href="/auth/registro" style={{ color: "var(--acid)", textDecoration: "none" }}>registrarte</Link>
+              {" "}para confirmar
+            </span>
+          </div>
+        )}
+
         {/* CTA */}
         <button
-          disabled={!selectedService || !selectedDay || !selectedTime}
-          onClick={() => setConfirmed(true)}
+          disabled={!selectedService || selectedDay === null || !selectedTime || reservaLoading}
+          onClick={handleConfirmar}
           style={{
             width: "100%",
             background:
@@ -540,14 +614,16 @@ export default function JovanProfile() {
             fontSize: "1.2rem",
             letterSpacing: "0.15em",
             cursor:
-              selectedService && selectedDay !== null && selectedTime
+              selectedService && selectedDay !== null && selectedTime && !reservaLoading
                 ? "pointer"
                 : "not-allowed",
             transition: "all 0.2s",
           }}
         >
-          {selectedService && selectedDay !== null && selectedTime
-            ? "CONFIRMAR RESERVA"
+          {reservaLoading
+            ? "RESERVANDO..."
+            : selectedService && selectedDay !== null && selectedTime
+            ? user ? "CONFIRMAR RESERVA" : "INICIA SESIÓN PARA RESERVAR"
             : "COMPLETA LOS PASOS"}
         </button>
       </div>
