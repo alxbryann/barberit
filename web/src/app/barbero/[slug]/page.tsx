@@ -36,6 +36,26 @@ function getDays() {
 
 const DAYS = getDays();
 
+/**
+ * Misma composición del título del hero aunque el nombre venga sin espacio
+ * (p. ej. "JovanBarber"), con guiones, o solo el slug — evita "JOVANBARBER" en una línea
+ * para visitantes y "JOVAN" / "BARBER" para el dueño con perfil distinto.
+ */
+function heroNameLines(raw: string): { primary: string; secondary: string } {
+  const s = raw.trim().replace(/-/g, " ");
+  if (!s) return { primary: "", secondary: "BARBER" };
+  const upper = s.toUpperCase();
+  const parts = upper.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return { primary: parts[0], secondary: parts.slice(1).join(" ") };
+  }
+  const one = parts[0];
+  if (one.length > 6 && one.endsWith("BARBER")) {
+    return { primary: one.slice(0, -6), secondary: "BARBER" };
+  }
+  return { primary: one, secondary: "BARBER" };
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function BarberProfile() {
@@ -174,8 +194,7 @@ export default function BarberProfile() {
     );
   }
 
-  const nombreDisplay = barbero.nombre.toUpperCase();
-  const [firstName, ...rest] = nombreDisplay.split(" ");
+  const { primary: heroPrimary, secondary: heroSecondary } = heroNameLines(barbero.nombre);
 
   if (confirmed) {
     return (
@@ -234,9 +253,9 @@ export default function BarberProfile() {
             </span>
           </div>
           <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(3.5rem, 9vw, 8rem)", lineHeight: 0.88, letterSpacing: "-0.01em", color: "var(--white)", margin: 0 }}>
-            {firstName}
-            {rest.length > 0 && <><br /><span style={{ color: "var(--acid)" }}>{rest.join(" ")}</span></>}
-            {rest.length === 0 && <><br /><span style={{ color: "var(--acid)" }}>BARBER</span></>}
+            {heroPrimary}
+            <br />
+            <span style={{ color: "var(--acid)" }}>{heroSecondary}</span>
           </h1>
           <div style={{ display: "flex", gap: "1.5rem", marginTop: "1.25rem", flexWrap: "wrap" }}>
             {[
