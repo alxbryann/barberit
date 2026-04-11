@@ -1,0 +1,195 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "BARBER.IT" [ref=e3] [cursor=pointer]:
+      - /url: "#"
+      - generic [ref=e4]: BARBER.IT
+    - list [ref=e5]:
+      - listitem [ref=e6]:
+        - link "Servicios" [ref=e7] [cursor=pointer]:
+          - /url: "#servicios"
+      - listitem [ref=e8]:
+        - link "Barberos" [ref=e9] [cursor=pointer]:
+          - /url: "#barberos"
+      - listitem [ref=e10]:
+        - link "Galería" [ref=e11] [cursor=pointer]:
+          - /url: "#galería"
+      - listitem [ref=e12]:
+        - link "Contacto" [ref=e13] [cursor=pointer]:
+          - /url: "#contacto"
+    - link "Reservar" [ref=e14] [cursor=pointer]:
+      - /url: "#reservar"
+  - main [ref=e15]:
+    - generic [ref=e16]:
+      - generic [ref=e21]: BOGO
+      - generic [ref=e22]: LA
+      - generic [ref=e23]:
+        - generic [ref=e26]: Bogotá · Colombia
+        - heading "CORTES CON CALLE. CON CALLE. CON CALLE." [level=1] [ref=e27]:
+          - text: CORTES
+          - generic [ref=e28]: CON CALLE. CON CALLE. CON CALLE.
+        - paragraph [ref=e29]: La barbería que entiende la calle. Tu imagen, tu identidad, tu sello.
+        - generic [ref=e30]:
+          - link "Reservar turno" [ref=e31] [cursor=pointer]:
+            - /url: "#reservar"
+          - link "Ver servicios" [ref=e32] [cursor=pointer]:
+            - /url: "#servicios"
+      - generic [ref=e33]:
+        - generic [ref=e34]: Scroll
+        - img [ref=e35]
+    - generic [ref=e37]:
+      - generic: "?"
+      - generic [ref=e38]:
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - generic [ref=e41]: El proceso
+            - heading "¿CÓMO ES LA VUELTA?" [level=2] [ref=e42]:
+              - text: ¿CÓMO ES
+              - text: LA VUELTA?
+          - paragraph [ref=e43]: "Simple, directo, sin complicaciones. Así como debe ser un buen corte: rápido en el proceso, eterno en el resultado."
+        - generic [ref=e44]:
+          - generic [ref=e45]:
+            - generic [ref=e46]: "01"
+            - heading "Elige tu barbero" [level=3] [ref=e47]
+            - paragraph [ref=e48]: Cada uno con su estilo, su sello y su flow propio. Tú decides quién te pone a punto.
+          - generic [ref=e49]:
+            - generic [ref=e50]: "02"
+            - heading "Agenda tu turno" [level=3] [ref=e51]
+            - paragraph [ref=e52]: Sin filas, sin esperas. Reserva online en menos de un minuto y llega en tu hora.
+          - generic [ref=e53]:
+            - generic [ref=e54]: "03"
+            - heading "Lleva el corte" [level=3] [ref=e55]
+            - paragraph [ref=e56]: Sal de la silla con identidad. Un corte que habla por ti antes de que abras la boca.
+    - generic [ref=e57]:
+      - generic [ref=e59]:
+        - generic [ref=e60]: LOS MÁS DUROS — BOGO ★
+        - generic [ref=e61]: LOS MÁS DUROS — BOGO ★
+        - generic [ref=e62]: LOS MÁS DUROS — BOGO ★
+        - generic [ref=e63]: LOS MÁS DUROS — BOGO ★
+        - generic [ref=e64]: LOS MÁS DUROS — BOGO ★
+        - generic [ref=e65]: LOS MÁS DUROS — BOGO ★
+        - generic [ref=e66]: LOS MÁS DUROS — BOGO ★
+        - generic [ref=e67]: LOS MÁS DUROS — BOGO ★
+      - generic [ref=e69]:
+        - generic [ref=e70]: Nuestros barberos
+        - generic [ref=e72]: 4 disponibles
+      - generic [ref=e73]:
+        - generic [ref=e74] [cursor=pointer]:
+          - generic [ref=e75]:
+            - generic [ref=e76]: MV
+            - link [ref=e79]:
+              - /url: "#"
+              - img [ref=e80]
+            - generic [ref=e87]: 3,200 cortes
+          - generic [ref=e88]:
+            - heading "MATEO VILLA" [level=3] [ref=e90]
+            - generic [ref=e91]: “El Fino”
+            - paragraph [ref=e92]: Fade · Diseños · Beard Sculpt
+            - link "Reservar" [ref=e93]:
+              - /url: "#reservar"
+        - generic [ref=e94] [cursor=pointer]:
+          - generic [ref=e95]:
+            - generic [ref=e96]: CR
+            - link [ref=e99]:
+              - /url: "#"
+              - img [ref=e100]
+            - generic [ref=e107]: 2,800 cortes
+          - generic [ref=e108]:
+            - heading "CARLOS REY" [level=3] [ref=e110]
+            - generic [ref=e111]: “El Duque”
+            - paragraph [ref=e112]: Skin Fade · Textures · Classic
+            - link "Reservar" [ref=e113]:
+              - /url: "#reservar"
+        - generic [ref=e114] [cursor=pointer]:
+          - generic [ref=e115]:
+            - generic [ref=e116]: AP
+            - link [ref=e119]:
+              - /url: "#"
+              - img [ref=e120]
+            - generic [ref=e127]: 2,100 cortes
+          - generic [ref=e128]:
+            - heading "ANDRÉS PAZ" [level=3] [ref=e130]
+            - generic [ref=e131]: “El Calvo”
+            - paragraph [ref=e132]: Afro · Twist · Creative Color
+            - link "Reservar" [ref=e133]:
+              - /url: "#reservar"
+        - generic [ref=e134] [cursor=pointer]:
+          - generic [ref=e135]:
+            - generic [ref=e136]: JM
+            - link [ref=e139]:
+              - /url: "#"
+              - img [ref=e140]
+            - generic [ref=e147]: 1,750 cortes
+          - generic [ref=e148]:
+            - heading "JUAN MORA" [level=3] [ref=e150]
+            - generic [ref=e151]: “El Mago”
+            - paragraph [ref=e152]: Mid Fade · Curls · Lineup
+            - link "Reservar" [ref=e153]:
+              - /url: "#reservar"
+    - generic [ref=e154]:
+      - generic:
+        - generic: FLOW
+      - generic [ref=e157]:
+        - generic [ref=e158]:
+          - generic [ref=e159]: "#BOGOTA"
+          - heading "LLEVA EL FLOW." [level=2] [ref=e160]:
+            - text: LLEVA
+            - text: EL FLOW.
+          - paragraph [ref=e161]: No se trata solo de un corte. Se trata de cómo salís de la silla. Con actitud, con identidad, con flow.
+        - generic [ref=e162]:
+          - heading "Reserva tu turno" [level=3] [ref=e163]
+          - generic [ref=e164]:
+            - textbox "Tu nombre" [ref=e165]
+            - textbox "WhatsApp" [ref=e166]
+            - combobox [ref=e167] [cursor=pointer]:
+              - option "Elige barbero" [selected]
+              - option "Mateo Villa — El Fino"
+              - option "Carlos Rey — El Duque"
+              - option "Andrés Paz — El Calvo"
+              - option "Juan Mora — El Mago"
+            - button "Confirmar turno" [ref=e168] [cursor=pointer]
+          - paragraph [ref=e169]:
+            - text: "También por WhatsApp:"
+            - link "+57 300 000 0000" [ref=e170] [cursor=pointer]:
+              - /url: "#"
+  - contentinfo [ref=e171]:
+    - generic [ref=e172]:
+      - generic [ref=e173]:
+        - generic [ref=e174]: BARBER.IT
+        - paragraph [ref=e175]: La barbería que entiende la calle. Bogotá de corazón, cortes con identidad.
+        - link [ref=e177] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e178]
+      - generic [ref=e184]:
+        - heading "Links" [level=4] [ref=e185]
+        - list [ref=e186]:
+          - listitem [ref=e187]:
+            - link "Servicios" [ref=e188] [cursor=pointer]:
+              - /url: "#servicios"
+          - listitem [ref=e189]:
+            - link "Barberos" [ref=e190] [cursor=pointer]:
+              - /url: "#barberos"
+          - listitem [ref=e191]:
+            - link "Galería" [ref=e192] [cursor=pointer]:
+              - /url: "#galería"
+          - listitem [ref=e193]:
+            - link "Reservar" [ref=e194] [cursor=pointer]:
+              - /url: "#reservar"
+      - generic [ref=e195]:
+        - heading "Dónde" [level=4] [ref=e196]
+        - generic [ref=e197]:
+          - generic [ref=e198]:
+            - img [ref=e199]
+            - generic [ref=e202]:
+              - text: "Cra 15 #93-75"
+              - text: Bogotá, Colombia
+          - generic [ref=e203]:
+            - img [ref=e204]
+            - generic [ref=e207]:
+              - text: "Lun–Sáb: 9am – 8pm"
+              - text: "Dom: 10am – 5pm"
+    - generic [ref=e208]:
+      - generic [ref=e209]: © 2025 Barber.it — Todos los derechos reservados.
+      - generic [ref=e210]: Hecho en Bogotá 🇨🇴
+  - button "Open Next.js Dev Tools" [ref=e216] [cursor=pointer]:
+    - img [ref=e217]
+  - alert [ref=e220]
