@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Scissors, Plus, Trash2, Upload, Eye, Save, Clock, ChevronLeft } from "lucide-react";
+import { Plus, Trash2, Upload, Save, Clock, Image, X } from "lucide-react";
+import BarberLayout from "../barbero-layout";
 
 interface Servicio {
   id?: string;
@@ -25,10 +25,15 @@ export default function EditarBarbero() {
 
   const [barberoId, setBarberoId] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
+  const [nombreBarberia, setNombreBarberia] = useState("");
   const [bio, setBio] = useState("");
   const [especialidades, setEspecialidades] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [galeria, setGaleria] = useState<{ id: string; imagen_url: string; tipo?: string; descripcion?: string }[]>([]);
+  const galeriaInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingGaleria, setUploadingGaleria] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -40,23 +45,28 @@ export default function EditarBarbero() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/auth/login"); return; }
 
-      // Verificar que este slug le pertenece al usuario
-      const { data: barbero } = await supabase
+      const { data: barbero, error } = await supabase
         .from("barberos")
-        .select("id, slug, bio, especialidades, video_url, profiles(nombre)")
-        .eq("slug", slug)
-        .single();
+        .select("id, slug, bio, especialidades, video_url, nombre_barberia, profiles(nombre)")
+        .eq("id", user.id)
+        .maybeSingle();
 
-      const b = barbero as unknown as { id: string; slug: string; bio: string; especialidades: string[]; video_url: string; profiles: { nombre: string } | null };
+      const b = barbero as unknown as { id: string; slug: string; bio: string; especialidades: string[]; video_url: string; nombre_barberia: string | null; profiles: { nombre: string } | null };
 
-      if (!b || b.id !== user.id) {
+      if (error || !b) {
         setAuthError(true);
         setLoading(false);
         return;
       }
 
+      if (b.slug !== slug) {
+        router.replace(`/barbero/${b.slug}/editar`);
+        return;
+      }
+
       setBarberoId(b.id);
       setNombre(b.profiles?.nombre ?? "");
+      setNombreBarberia(b.nombre_barberia?.trim() ?? "");
       setBio(b.bio ?? "");
       setEspecialidades((b.especialidades ?? []).join(", "));
       setVideoUrl(b.video_url ?? "");
@@ -78,6 +88,14 @@ export default function EditarBarbero() {
           { nombre: "COMBO FULL", precio: 65000, duracion_min: 75, icono: "◉", activo: true, isNew: true },
         ]);
       }
+
+      // Cargar galería
+      const { data: gal } = await supabase
+        .from("galeria_cortes")
+        .select("id, imagen_url, tipo, descripcion")
+        .eq("barbero_id", b.id)
+        .order("created_at", { ascending: false });
+      if (gal) setGaleria(gal);
 
       setLoading(false);
     }
@@ -116,6 +134,7 @@ export default function EditarBarbero() {
       bio,
       especialidades: espArray,
       video_url: videoUrl || null,
+      nombre_barberia: nombreBarberia.trim() || null,
     }).eq("id", barberoId);
 
     await supabase.from("profiles").update({ nombre }).eq("id", barberoId);
@@ -146,6 +165,37 @@ export default function EditarBarbero() {
     setTimeout(() => setSaved(false), 2500);
   }
 
+  async function handleGaleriaUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (!files || !barberoId) return;
+    setUploadingGaleria(true);
+    for (const file of Array.from(files)) {
+      const ext = file.name.split(".").pop();
+      const path = `${barberoId}/galeria/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const tipo = file.type.startsWith("video/") ? "video" : "imagen";
+      const { error } = await supabase.storage.from("barberos-media").upload(path, file);
+      if (!error) {
+        const { data } = supabase.storage.from("barberos-media").getPublicUrl(path);
+        const { data: row } = await supabase
+          .from("galeria_cortes")
+          .insert({ barbero_id: barberoId, imagen_url: data.publicUrl, tipo })
+          .select("id, imagen_url, tipo, descripcion")
+          .single();
+        if (row) setGaleria((prev) => [row, ...prev]);
+      }
+    }
+    setUploadingGaleria(false);
+    if (galeriaInputRef.current) galeriaInputRef.current.value = "";
+  }
+
+  async function handleDeleteFoto(id: string, url: string) {
+    await supabase.from("galeria_cortes").delete().eq("id", id);
+    // Extraer path relativo del storage
+    const match = url.match(/barberos-media\/(.+)$/);
+    if (match) await supabase.storage.from("barberos-media").remove([match[1]]);
+    setGaleria((prev) => prev.filter((f) => f.id !== id));
+  }
+
   function addServicio() {
     setServicios((prev) => [
       ...prev,
@@ -162,55 +212,40 @@ export default function EditarBarbero() {
   }
 
   if (loading) return (
-    <div style={{ background: "var(--black)", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.5rem", letterSpacing: "0.2em", color: "var(--acid)" }}>CARGANDO...</span>
-    </div>
+    <BarberLayout slug={slug}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.5rem", letterSpacing: "0.2em", color: "var(--acid)" }}>CARGANDO...</span>
+      </div>
+    </BarberLayout>
   );
 
   if (authError) return (
-    <div style={{ background: "var(--black)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
-      <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "3rem", color: "var(--white)" }}>SIN ACCESO</h1>
-      <p style={{ fontFamily: "'Barlow Condensed', sans-serif", color: "var(--gray-light)" }}>Este perfil no te pertenece.</p>
-      <Link href="/" style={{ color: "var(--acid)", fontFamily: "'Barlow Condensed', sans-serif", letterSpacing: "0.15em" }}>← Inicio</Link>
-    </div>
+    <BarberLayout slug={slug}>
+      <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
+        <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "3rem", color: "var(--white)" }}>SIN ACCESO</h1>
+        <p style={{ fontFamily: "'Barlow Condensed', sans-serif", color: "var(--gray-light)" }}>Este perfil no te pertenece.</p>
+      </div>
+    </BarberLayout>
   );
 
   return (
-    <div style={{ background: "var(--black)", minHeight: "100vh", color: "var(--white)" }}>
-      {/* Header */}
-      <div style={{ borderBottom: "1px solid var(--gray)", padding: "1rem 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, background: "rgba(8,8,8,0.95)", backdropFilter: "blur(12px)", zIndex: 100 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <Link href={`/barbero/${slug}/panel`} style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--gray-light)", textDecoration: "none", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.8rem", letterSpacing: "0.15em", textTransform: "uppercase" }}>
-            <ChevronLeft size={14} /> Panel
-          </Link>
-          <div style={{ width: 1, height: 20, background: "var(--gray)" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Scissors size={14} color="var(--acid)" />
-            <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.1rem", letterSpacing: "0.1em" }}>
-              BARBER<span style={{ color: "var(--acid)" }}>.IT</span>
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <Link
-            href={`/barbero/${slug}`}
-            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "transparent", border: "1px solid var(--gray)", color: "var(--gray-light)", padding: "0.5rem 1rem", fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.15em", textTransform: "uppercase", textDecoration: "none" }}
-          >
-            <Eye size={12} /> Ver perfil
-          </Link>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: saved ? "var(--acid)" : "var(--acid)", color: "var(--black)", border: "none", padding: "0.5rem 1.25rem", fontFamily: "'Bebas Neue', sans-serif", fontSize: "0.95rem", letterSpacing: "0.1em", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s" }}
-          >
-            <Save size={13} />
-            {saving ? "GUARDANDO..." : saved ? "GUARDADO ✓" : "GUARDAR"}
-          </button>
-        </div>
+    <BarberLayout slug={slug}>
+      {/* Sticky save bar */}
+      <div style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(10,10,10,0.97)", backdropFilter: "blur(12px)", borderBottom: "1px solid var(--gray)", padding: "0.85rem 1.75rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.12em", color: "var(--white)" }}>
+          EDITAR PERFIL
+        </span>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "var(--acid)", color: "var(--black)", border: "none", padding: "0.5rem 1.35rem", fontFamily: "'Bebas Neue', sans-serif", fontSize: "0.95rem", letterSpacing: "0.1em", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1, transition: "all 0.2s" }}
+        >
+          <Save size={13} />
+          {saving ? "GUARDANDO..." : saved ? "GUARDADO ✓" : "GUARDAR"}
+        </button>
       </div>
 
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "2.5rem 1.5rem 6rem" }}>
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "2.5rem 1.75rem 6rem" }}>
 
         {/* Banner bienvenida si es nuevo */}
         {!videoUrl && (
@@ -230,6 +265,12 @@ export default function EditarBarbero() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: "1rem", marginBottom: "3rem" }}>
           <Field label="NOMBRE COMPLETO" value={nombre} onChange={setNombre} placeholder="Jovan Rivera" />
+          <Field
+            label="NOMBRE DE LA BARBERÍA"
+            value={nombreBarberia}
+            onChange={setNombreBarberia}
+            placeholder="Ej. The Fade House"
+          />
           <Field label="BIO (opcional)" value={bio} onChange={setBio} placeholder="Especialista en fades y diseños desde 2017..." multiline />
           <Field
             label="ESPECIALIDADES (separadas por coma)"
@@ -360,18 +401,95 @@ export default function EditarBarbero() {
           <Plus size={14} /> Agregar servicio
         </button>
 
-        {/* Guardar flotante móvil */}
-        <div style={{ position: "fixed", bottom: "2rem", right: "1.5rem", zIndex: 200 }} className="show-mobile-save">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{ background: "var(--acid)", color: "var(--black)", border: "none", padding: "0.9rem 1.75rem", fontFamily: "'Bebas Neue', sans-serif", fontSize: "1rem", letterSpacing: "0.1em", cursor: "pointer", boxShadow: "0 4px 24px rgba(205,255,0,0.3)" }}
+        {/* ── GALERÍA DE CORTES ──────────────────────────────────────── */}
+        <div style={{ marginTop: "3rem" }}>
+          <Section number="04" label="GALERÍA DE CORTES" />
+
+          {galeria.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.5rem", marginBottom: "1rem" }}>
+              {galeria.map((foto) => (
+                <div key={foto.id} style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
+                  {foto.tipo === "video" ? (
+                    <video
+                      src={foto.imagen_url}
+                      muted loop autoPlay playsInline
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={foto.imagen_url}
+                      alt="corte"
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    />
+                  )}
+                  <button
+                    onClick={() => handleDeleteFoto(foto.id, foto.imagen_url)}
+                    style={{ position: "absolute", top: "0.35rem", right: "0.35rem", background: "rgba(0,0,0,0.75)", border: "none", color: "#ff6b6b", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", borderRadius: 0 }}
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div
+            onClick={() => !uploadingGaleria && galeriaInputRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragOver(false);
+              if (uploadingGaleria) return;
+              const files = Array.from(e.dataTransfer.files).filter((f) =>
+                f.type.startsWith("image/") || f.type.startsWith("video/")
+              );
+              if (!files.length) return;
+              const dt = new DataTransfer();
+              files.forEach((f) => dt.items.add(f));
+              const fakeEvent = { target: { files: dt.files } } as unknown as React.ChangeEvent<HTMLInputElement>;
+              handleGaleriaUpload(fakeEvent);
+            }}
+            style={{
+              width: "100%",
+              background: dragOver ? "rgba(205,255,0,0.05)" : "transparent",
+              border: `2px dashed ${dragOver ? "var(--acid)" : "var(--gray)"}`,
+              color: dragOver ? "var(--acid)" : "var(--gray-light)",
+              padding: "2rem 1rem",
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontWeight: 600,
+              fontSize: "0.85rem",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase" as const,
+              cursor: uploadingGaleria ? "not-allowed" : "pointer",
+              display: "flex",
+              flexDirection: "column" as const,
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "0.6rem",
+              transition: "all 0.15s",
+              userSelect: "none" as const,
+            }}
           >
-            {saving ? "GUARDANDO..." : saved ? "GUARDADO ✓" : "GUARDAR CAMBIOS"}
-          </button>
+            <Image size={28} color={dragOver ? "var(--acid)" : undefined} />
+            <span>{uploadingGaleria ? "SUBIENDO..." : dragOver ? "SUELTA AQUÍ" : "ARRASTRA TUS FOTOS AQUÍ"}</span>
+            <span style={{ fontSize: "0.7rem", fontWeight: 400, letterSpacing: "0.1em", opacity: 0.6 }}>
+              o haz click · JPG · PNG · WebP · MP4 · varias a la vez
+            </span>
+          </div>
+          <input
+            ref={galeriaInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,video/mp4,video/webm,video/quicktime"
+            multiple
+            onChange={handleGaleriaUpload}
+            style={{ display: "none" }}
+          />
         </div>
+
       </div>
-    </div>
+    </BarberLayout>
   );
 }
 

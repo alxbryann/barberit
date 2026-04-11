@@ -1,21 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
   Calendar,
   ChevronLeft,
   ChevronRight,
   Clock,
-  Pencil,
-  Scissors,
   User,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import BarberLayout from "../barbero-layout";
 
-const SLOT_START = 9 * 60; // 09:00
-const SLOT_END = 20 * 60; // 20:00
+const SLOT_START = 9 * 60;
+const SLOT_END = 20 * 60;
 const STEP = 30;
 
 function pad2(n: number) {
@@ -26,7 +24,6 @@ function toISODate(d: Date) {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-/** DB suele devolver TIME como "11:30:00"; el calendario usa slots "11:30". */
 function normalizeHora(t: string): string {
   const raw = (t ?? "").trim();
   if (!raw) return "";
@@ -74,7 +71,6 @@ export default function BarberoPanelPage() {
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState(false);
   const [barberoId, setBarberoId] = useState<string | null>(null);
-  const [nombreBarbero, setNombreBarbero] = useState("");
 
   const [day, setDay] = useState(() => {
     const t = new Date();
@@ -83,10 +79,19 @@ export default function BarberoPanelPage() {
   });
 
   const dateStr = useMemo(() => toISODate(day), [day]);
-
   const [reservas, setReservas] = useState<ReservaRow[]>([]);
   const [profiles, setProfiles] = useState<Record<string, ProfileMini>>({});
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [completando, setCompletando] = useState<string | null>(null);
+
+  async function handleCompletar(reservaId: string) {
+    setCompletando(reservaId);
+    await supabase.from("reservas").update({ estado: "completada" }).eq("id", reservaId);
+    setReservas((prev) =>
+      prev.map((r) => (r.id === reservaId ? { ...r, estado: "completada" } : r))
+    );
+    setCompletando(null);
+  }
 
   const shiftDay = (delta: number) => {
     setDay((d) => {
@@ -112,66 +117,45 @@ export default function BarberoPanelPage() {
       .eq("fecha", dateStr)
       .order("hora", { ascending: true });
 
-    if (error) {
-      setLoadErr(error.message);
-      setReservas([]);
-      return;
-    }
+    if (error) { setLoadErr(error.message); setReservas([]); return; }
 
     const rows = (data ?? []) as ReservaRow[];
     setReservas(rows);
 
     const ids = [...new Set(rows.map((r) => r.cliente_id))];
-    if (ids.length === 0) {
-      setProfiles({});
-      return;
-    }
+    if (ids.length === 0) { setProfiles({}); return; }
 
     const { data: profs, error: pErr } = await supabase
       .from("profiles")
       .select("id, nombre, telefono")
       .in("id", ids);
 
-    if (pErr) {
-      setLoadErr(pErr.message);
-      return;
-    }
+    if (pErr) { setLoadErr(pErr.message); return; }
 
     const map: Record<string, ProfileMini> = {};
-    for (const p of profs ?? []) {
-      map[p.id] = p as ProfileMini;
-    }
+    for (const p of profs ?? []) map[p.id] = p as ProfileMini;
     setProfiles(map);
   }, [barberoId, dateStr]);
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push("/auth/login");
-        return;
-      }
+      if (!user) { router.push("/auth/login"); return; }
 
-      const { data: barbero } = await supabase
+      const { data: barbero, error } = await supabase
         .from("barberos")
-        .select("id, slug, profiles(nombre)")
-        .eq("slug", slug)
-        .single();
+        .select("id, slug, nombre_barberia, profiles(nombre)")
+        .eq("id", user.id)
+        .maybeSingle();
 
       const b = barbero as unknown as {
-        id: string;
-        slug: string;
-        profiles: { nombre: string } | null;
+        id: string; slug: string; nombre_barberia: string | null; profiles: { nombre: string } | null;
       } | null;
 
-      if (!b || b.id !== user.id) {
-        setAuthError(true);
-        setLoading(false);
-        return;
-      }
+      if (error || !b) { setAuthError(true); setLoading(false); return; }
+      if (b.slug !== slug) { router.replace(`/barbero/${b.slug}/panel`); return; }
 
       setBarberoId(b.id);
-      setNombreBarbero(b.profiles?.nombre ?? slug);
       setLoading(false);
     }
     init();
@@ -195,197 +179,85 @@ export default function BarberoPanelPage() {
 
   const sorted = useMemo(
     () => [...reservas].sort((a, b) => parseTimeToMin(a.hora) - parseTimeToMin(b.hora)),
-    [reservas],
+    [reservas]
   );
 
   const isToday = useMemo(() => toISODate(new Date()) === dateStr, [dateStr]);
 
   const labelDay = useMemo(() => {
-    return day.toLocaleDateString("es-CO", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-    });
+    const raw = day.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" });
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
   }, [day]);
 
   if (loading) {
     return (
-      <div
-        style={{
-          background: "var(--black)",
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "'Bebas Neue', sans-serif",
-            fontSize: "1.5rem",
-            letterSpacing: "0.2em",
-            color: "var(--acid)",
-          }}
-        >
-          CARGANDO PANEL...
-        </span>
-      </div>
+      <BarberLayout slug={slug}>
+        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.5rem", letterSpacing: "0.2em", color: "var(--acid)" }}>
+            CARGANDO...
+          </span>
+        </div>
+      </BarberLayout>
     );
   }
 
   if (authError) {
     return (
-      <div
-        style={{
-          background: "var(--black)",
-          minHeight: "100vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "1rem",
-          padding: "2rem",
-        }}
-      >
-        <p
-          style={{
-            fontFamily: "'Barlow Condensed', sans-serif",
-            color: "var(--gray-light)",
-            textAlign: "center",
-          }}
-        >
-          No tienes acceso a este panel o el enlace no es válido.
-        </p>
-        <Link
-          href="/auth/login"
-          style={{ color: "var(--acid)", fontFamily: "'Barlow Condensed', sans-serif" }}
-        >
-          Iniciar sesión
-        </Link>
-      </div>
+      <BarberLayout slug={slug}>
+        <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1rem" }}>
+          <p style={{ fontFamily: "'Barlow Condensed', sans-serif", color: "var(--gray-light)" }}>
+            No tienes acceso a este panel.
+          </p>
+        </div>
+      </BarberLayout>
     );
   }
 
   return (
-    <div style={{ background: "var(--black)", minHeight: "100vh", color: "var(--white)" }}>
-      <header
-        style={{
-          borderBottom: "1px solid var(--gray)",
-          padding: "1rem 1.25rem",
+    <BarberLayout slug={slug}>
+      <div style={{ padding: "2rem 1.75rem 4rem", maxWidth: 960, margin: "0 auto" }}>
+
+        {/* ── ENCABEZADO DÍA ─────────────────────────────────── */}
+        <div style={{
           display: "flex",
           flexWrap: "wrap",
           alignItems: "center",
           justifyContent: "space-between",
           gap: "1rem",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-          <Link
-            href="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "0.35rem",
-              color: "var(--gray-light)",
-              textDecoration: "none",
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: "0.75rem",
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-            }}
-          >
-            <ChevronLeft size={14} />
-            Inicio
-          </Link>
-          <div style={{ width: 1, height: 24, background: "var(--gray)" }} />
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Scissors size={16} color="var(--acid)" />
-            <span
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: "1.25rem",
-                letterSpacing: "0.08em",
-              }}
-            >
-              PANEL · {nombreBarbero.toUpperCase()}
-            </span>
-          </div>
-        </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.6rem" }}>
-          <Link
-            href={`/barbero/${slug}`}
-            style={{
-              border: "1px solid var(--gray)",
-              color: "var(--gray-light)",
-              padding: "0.45rem 0.9rem",
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: "0.7rem",
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              textDecoration: "none",
-            }}
-          >
-            Ver perfil público
-          </Link>
-          <Link
-            href={`/barbero/${slug}/editar`}
-            style={{
-              background: "var(--acid)",
-              color: "var(--black)",
-              padding: "0.45rem 0.9rem",
+          marginBottom: "2.5rem",
+          paddingBottom: "1.5rem",
+          borderBottom: "1px solid var(--gray)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            <Calendar size={20} color="var(--acid)" />
+            <h1 style={{
               fontFamily: "'Bebas Neue', sans-serif",
-              fontSize: "0.85rem",
-              letterSpacing: "0.12em",
-              textDecoration: "none",
-              display: "inline-flex",
-              alignItems: "center",
-              gap: "0.35rem",
-            }}
-          >
-            <Pencil size={14} strokeWidth={2.5} />
-            EDITAR PERFIL
-          </Link>
-        </div>
-      </header>
-
-      <main style={{ maxWidth: 960, margin: "0 auto", padding: "1.5rem 1.25rem 4rem" }}>
-        {/* Selector de día */}
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: "1rem",
-            marginBottom: "2rem",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <Calendar size={18} color="var(--acid)" />
-            <h1
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: "clamp(1.75rem, 4vw, 2.5rem)",
-                letterSpacing: "0.04em",
-                margin: 0,
-                textTransform: "capitalize",
-              }}
-            >
+              fontSize: "clamp(1.6rem, 4vw, 2.25rem)",
+              letterSpacing: "0.04em",
+              margin: 0,
+            }}>
               {labelDay}
             </h1>
+            {isToday && (
+              <span style={{
+                background: "var(--acid)",
+                color: "var(--black)",
+                fontFamily: "'Bebas Neue', sans-serif",
+                fontSize: "0.7rem",
+                letterSpacing: "0.15em",
+                padding: "0.2rem 0.5rem",
+              }}>
+                HOY
+              </span>
+            )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap" }}>
+
+          {/* Controles de día */}
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
             <button
               type="button"
               onClick={() => shiftDay(-1)}
-              style={{
-                background: "var(--dark2)",
-                border: "1px solid var(--gray)",
-                color: "var(--white)",
-                padding: "0.5rem",
-                cursor: "pointer",
-                display: "flex",
-              }}
+              style={navBtnStyle}
               aria-label="Día anterior"
             >
               <ChevronLeft size={18} />
@@ -395,11 +267,10 @@ export default function BarberoPanelPage() {
               onClick={goToday}
               disabled={isToday}
               style={{
-                background: isToday ? "var(--gray)" : "var(--dark2)",
-                border: "1px solid var(--gray)",
+                ...navBtnStyle,
                 color: isToday ? "var(--gray-mid)" : "var(--acid)",
-                padding: "0.45rem 0.85rem",
                 cursor: isToday ? "not-allowed" : "pointer",
+                padding: "0.45rem 0.9rem",
                 fontFamily: "'Barlow Condensed', sans-serif",
                 fontWeight: 700,
                 fontSize: "0.7rem",
@@ -411,14 +282,7 @@ export default function BarberoPanelPage() {
             <button
               type="button"
               onClick={() => shiftDay(1)}
-              style={{
-                background: "var(--dark2)",
-                border: "1px solid var(--gray)",
-                color: "var(--white)",
-                padding: "0.5rem",
-                cursor: "pointer",
-                display: "flex",
-              }}
+              style={navBtnStyle}
               aria-label="Día siguiente"
             >
               <ChevronRight size={18} />
@@ -427,122 +291,121 @@ export default function BarberoPanelPage() {
         </div>
 
         {loadErr && (
-          <p
-            style={{
-              color: "#ff6b6b",
-              fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: "0.9rem",
-              marginBottom: "1rem",
-            }}
-          >
+          <p style={{ color: "#ff6b6b", fontFamily: "'Barlow Condensed', sans-serif", marginBottom: "1rem" }}>
             {loadErr}
           </p>
         )}
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr",
-            gap: "2rem",
-          }}
-          className="panel-grid"
-        >
-          {/* Columna: lista de citas */}
+        {/* ── GRID: CITAS + FRANJAS ───────────────────────────── */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "2rem" }} className="panel-grid">
+
+          {/* CITAS */}
           <section>
-            <h2
-              style={{
+            <h2 style={sectionHeadStyle}>
+              <User size={15} />
+              CITAS DEL DÍA
+              <span style={{
+                marginLeft: "auto",
+                background: sorted.length > 0 ? "var(--acid)" : "var(--gray)",
+                color: sorted.length > 0 ? "var(--black)" : "var(--gray-mid)",
                 fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: "1.1rem",
-                letterSpacing: "0.15em",
-                color: "var(--acid)",
-                margin: "0 0 1rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <User size={16} />
-              CITAS ({sorted.length})
+                fontSize: "0.85rem",
+                padding: "0.1rem 0.5rem",
+                letterSpacing: "0.08em",
+              }}>
+                {sorted.length}
+              </span>
             </h2>
+
             {sorted.length === 0 ? (
-              <div
-                style={{
-                  border: "1px dashed var(--gray)",
-                  padding: "2rem",
-                  textAlign: "center",
-                  fontFamily: "'Barlow Condensed', sans-serif",
-                  color: "var(--gray-mid)",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                Nadie agendó este día. Cuando un cliente reserve, aparecerá aquí con nombre y hora.
+              <div style={{
+                border: "1px dashed var(--gray)",
+                padding: "2.5rem 2rem",
+                textAlign: "center",
+                fontFamily: "'Barlow Condensed', sans-serif",
+                color: "var(--gray-mid)",
+                letterSpacing: "0.04em",
+                lineHeight: 1.6,
+              }}>
+                Sin citas para este día.<br />
+                <span style={{ fontSize: "0.8rem", color: "#555" }}>Cuando un cliente reserve aparecerá aquí.</span>
               </div>
             ) : (
-              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.65rem" }}>
+              <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: "0.6rem" }}>
                 {sorted.map((r) => {
                   const p = profiles[r.cliente_id];
                   const name = p?.nombre?.trim() || "Cliente";
                   const tel = p?.telefono;
+                  const completada = r.estado === "completada";
+                  const cancelada = r.estado === "cancelada";
                   return (
                     <li
                       key={r.id}
                       style={{
-                        background: "var(--dark2)",
-                        border: "1px solid var(--gray)",
+                        background: completada ? "rgba(205,255,0,0.04)" : "var(--dark2)",
+                        border: `1px solid ${completada ? "rgba(205,255,0,0.25)" : "var(--gray)"}`,
                         padding: "1rem 1.1rem",
                         display: "flex",
                         flexWrap: "wrap",
                         alignItems: "center",
                         justifyContent: "space-between",
                         gap: "0.75rem",
+                        opacity: cancelada ? 0.45 : 1,
+                        transition: "all 0.2s",
                       }}
                     >
                       <div>
-                        <div
-                          style={{
-                            fontFamily: "'Bebas Neue', sans-serif",
-                            fontSize: "1.35rem",
-                            letterSpacing: "0.06em",
-                            color: "var(--white)",
-                          }}
-                        >
+                        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "1.3rem", letterSpacing: "0.05em" }}>
                           {name}
                         </div>
-                        <div
-                          style={{
-                            fontFamily: "'Barlow Condensed', sans-serif",
-                            fontSize: "0.8rem",
-                            color: "var(--gray-light)",
-                            marginTop: "0.2rem",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "0.5rem",
-                            flexWrap: "wrap",
-                          }}
-                        >
+                        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.8rem", color: "var(--gray-light)", marginTop: "0.2rem", display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" }}>
                           <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                            <Clock size={12} color="var(--acid)" />
+                            <Clock size={11} color="var(--acid)" />
                             {normalizeHora(r.hora)}
                           </span>
                           {tel && <span>· {tel}</span>}
                           {r.precio != null && (
-                            <span style={{ color: "var(--acid)" }}>${r.precio.toLocaleString("es-CO")}</span>
+                            <span style={{ color: "var(--acid)", fontWeight: 700 }}>
+                              ${r.precio.toLocaleString("es-CO")}
+                            </span>
                           )}
                         </div>
                       </div>
-                      <span
-                        style={{
+
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                        <span style={{
                           fontFamily: "'Barlow Condensed', sans-serif",
                           fontSize: "0.65rem",
-                          letterSpacing: "0.2em",
+                          letterSpacing: "0.15em",
                           textTransform: "uppercase",
-                          border: "1px solid var(--gray)",
-                          padding: "0.25rem 0.5rem",
-                          color: "var(--gray-light)",
-                        }}
-                      >
-                        {r.estado ?? "pendiente"}
-                      </span>
+                          border: `1px solid ${completada ? "var(--acid)" : "var(--gray)"}`,
+                          padding: "0.2rem 0.5rem",
+                          color: completada ? "var(--acid)" : "var(--gray-light)",
+                        }}>
+                          {r.estado ?? "pendiente"}
+                        </span>
+                        {!completada && !cancelada && (
+                          <button
+                            type="button"
+                            onClick={() => handleCompletar(r.id)}
+                            disabled={completando === r.id}
+                            style={{
+                              background: completando === r.id ? "var(--gray)" : "var(--acid)",
+                              color: "var(--black)",
+                              border: "none",
+                              padding: "0.3rem 0.75rem",
+                              fontFamily: "'Bebas Neue', sans-serif",
+                              fontSize: "0.78rem",
+                              letterSpacing: "0.1em",
+                              cursor: completando === r.id ? "not-allowed" : "pointer",
+                              whiteSpace: "nowrap",
+                              transition: "background 0.15s",
+                            }}
+                          >
+                            {completando === r.id ? "..." : "COMPLETAR"}
+                          </button>
+                        )}
+                      </div>
                     </li>
                   );
                 })}
@@ -550,31 +413,16 @@ export default function BarberoPanelPage() {
             )}
           </section>
 
-          {/* Columna: franjas del día */}
+          {/* FRANJAS DEL DÍA */}
           <section>
-            <h2
-              style={{
-                fontFamily: "'Bebas Neue', sans-serif",
-                fontSize: "1.1rem",
-                letterSpacing: "0.15em",
-                color: "var(--acid)",
-                margin: "0 0 1rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-              }}
-            >
-              <Clock size={16} />
-              TU DÍA (9:00 – 20:00)
+            <h2 style={sectionHeadStyle}>
+              <Clock size={15} />
+              VISTA HORARIA
+              <span style={{ marginLeft: "auto", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.7rem", color: "var(--gray-mid)", letterSpacing: "0.1em", fontWeight: 400 }}>
+                09:00 – 20:00
+              </span>
             </h2>
-            <div
-              style={{
-                border: "1px solid var(--gray)",
-                background: "var(--dark2)",
-                maxHeight: 420,
-                overflowY: "auto",
-              }}
-            >
+            <div style={{ border: "1px solid var(--gray)", background: "var(--dark2)", maxHeight: 420, overflowY: "auto" }}>
               {DAY_SLOTS.map((slot) => {
                 const booked = byTime.get(slot) ?? [];
                 const has = booked.length > 0;
@@ -583,55 +431,43 @@ export default function BarberoPanelPage() {
                     key={slot}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "72px 1fr",
-                      borderBottom: "1px solid var(--gray)",
-                      minHeight: 44,
+                      gridTemplateColumns: "68px 1fr",
+                      borderBottom: "1px solid rgba(255,255,255,0.05)",
+                      minHeight: 40,
                       alignItems: "stretch",
                     }}
                   >
-                    <div
-                      style={{
-                        fontFamily: "'Barlow Condensed', sans-serif",
-                        fontSize: "0.75rem",
-                        letterSpacing: "0.1em",
-                        color: "var(--gray-mid)",
-                        padding: "0.5rem 0.65rem",
-                        borderRight: "1px solid var(--gray)",
-                        display: "flex",
-                        alignItems: "center",
-                        background: "var(--black)",
-                      }}
-                    >
+                    <div style={{
+                      fontFamily: "'Barlow Condensed', sans-serif",
+                      fontSize: "0.72rem",
+                      letterSpacing: "0.08em",
+                      color: has ? "var(--acid)" : "var(--gray-mid)",
+                      padding: "0 0.65rem",
+                      borderRight: "1px solid rgba(255,255,255,0.07)",
+                      display: "flex",
+                      alignItems: "center",
+                      background: "var(--black)",
+                      fontWeight: has ? 700 : 400,
+                    }}>
                       {slot}
                     </div>
-                    <div
-                      style={{
-                        padding: "0.35rem 0.65rem",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "center",
-                        gap: "0.25rem",
-                        background: has ? "rgba(205,255,0,0.06)" : "transparent",
-                      }}
-                    >
+                    <div style={{
+                      padding: "0.35rem 0.65rem",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "center",
+                      gap: "0.2rem",
+                      background: has ? "rgba(205,255,0,0.05)" : "transparent",
+                    }}>
                       {has ? (
                         booked.map((r) => {
                           const p = profiles[r.cliente_id];
                           const name = p?.nombre?.trim() || "Cliente";
                           return (
-                            <span
-                              key={r.id}
-                              style={{
-                                fontFamily: "'Barlow Condensed', sans-serif",
-                                fontSize: "0.85rem",
-                                fontWeight: 600,
-                                letterSpacing: "0.04em",
-                                color: "var(--white)",
-                              }}
-                            >
+                            <span key={r.id} style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 600, color: "var(--white)" }}>
                               {name}
                               {r.precio != null && (
-                                <span style={{ color: "var(--acid)", marginLeft: "0.5rem" }}>
+                                <span style={{ color: "var(--acid)", marginLeft: "0.4rem", fontSize: "0.78rem" }}>
                                   ${r.precio.toLocaleString("es-CO")}
                                 </span>
                               )}
@@ -639,15 +475,8 @@ export default function BarberoPanelPage() {
                           );
                         })
                       ) : (
-                        <span
-                          style={{
-                            fontFamily: "'Barlow Condensed', sans-serif",
-                            fontSize: "0.7rem",
-                            color: "var(--gray-mid)",
-                            letterSpacing: "0.08em",
-                          }}
-                        >
-                          Libre
+                        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.68rem", color: "#333", letterSpacing: "0.06em" }}>
+                          libre
                         </span>
                       )}
                     </div>
@@ -657,16 +486,38 @@ export default function BarberoPanelPage() {
             </div>
           </section>
         </div>
-      </main>
+      </div>
 
       <style>{`
-        @media (min-width: 880px) {
+        @media (min-width: 860px) {
           .panel-grid {
             grid-template-columns: 1fr 1fr !important;
             align-items: start;
           }
         }
       `}</style>
-    </div>
+    </BarberLayout>
   );
 }
+
+const navBtnStyle: React.CSSProperties = {
+  background: "var(--dark2)",
+  border: "1px solid var(--gray)",
+  color: "var(--white)",
+  padding: "0.45rem 0.5rem",
+  cursor: "pointer",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const sectionHeadStyle: React.CSSProperties = {
+  fontFamily: "'Bebas Neue', sans-serif",
+  fontSize: "0.95rem",
+  letterSpacing: "0.15em",
+  color: "var(--acid)",
+  margin: "0 0 0.85rem",
+  display: "flex",
+  alignItems: "center",
+  gap: "0.5rem",
+};
