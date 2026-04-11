@@ -37,8 +37,15 @@ export default function LoginPage() {
         .from("barberos")
         .select("slug")
         .eq("id", data.user.id)
-        .single();
-      router.push(`/barbero/${barbero?.slug || data.user.id}/panel`);
+        .maybeSingle();
+      if (!barbero?.slug) {
+        setError(
+          "Tu cuenta no tiene perfil de barbero guardado. Confirma el correo si aplica y vuelve a intentar; si sigue igual, revisa en Supabase que exista la fila en barberos y que las políticas permitan leerla."
+        );
+        setLoading(false);
+        return;
+      }
+      router.push(`/barbero/${barbero.slug}/panel`);
     } else {
       router.push("/");
     }

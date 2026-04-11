@@ -50,24 +50,38 @@ export default function RegistroPage() {
     if (signUpData.session && signUpData.user) {
       const userId = signUpData.user.id;
 
-      await supabase.from("profiles").upsert({
+      const { error: profileErr } = await supabase.from("profiles").upsert({
         id: userId,
         role,
         nombre,
         telefono,
       });
+      if (profileErr) {
+        setError(profileErr.message);
+        setLoading(false);
+        return;
+      }
 
       if (role === "barbero") {
-        await supabase.from("barberos").upsert({
+        const { error: barberErr } = await supabase.from("barberos").upsert({
           id: userId,
           slug: slugFinal,
         });
+        if (barberErr) {
+          setError(barberErr.message);
+          setLoading(false);
+          return;
+        }
         router.push(`/barbero/${slugFinal}/panel`);
       } else {
         router.push("/");
       }
+    } else if (signUpData.user) {
+      // Confirmación por correo: aún no hay sesión; el callback crea barberos al abrir el link
+      setSlugFinalSent(slugFinal);
+      setEmailSent(true);
+      setLoading(false);
     } else {
-      // Fallback: si por alguna razón no hay sesión
       setError("Ocurrió un error. Intenta iniciar sesión.");
       setLoading(false);
     }

@@ -25,5 +25,7 @@ export interface Barbero {
   bio?: string;
   foto_url?: string;
   video_url?: string;
+  /** Nombre comercial de la barbería; el nombre del barbero va en Profile.nombre */
+  nombre_barberia?: string | null;
   activo: boolean;
 }

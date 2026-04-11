@@ -12,6 +12,7 @@ type BarberRow = {
   slug: string;
   especialidades: string[];
   total_cortes: number;
+  nombre_barberia: string | null;
   profiles: { nombre: string } | null;
 };
 
@@ -36,7 +37,7 @@ export default function CatalogoBarberosPage() {
   useEffect(() => {
     supabase
       .from("barberos")
-      .select("id, slug, especialidades, total_cortes, profiles(nombre)")
+      .select("id, slug, especialidades, total_cortes, nombre_barberia, profiles(nombre)")
       .then(({ data, error }) => {
         if (!error && data) setBarbers(data as unknown as BarberRow[]);
         setLoading(false);
@@ -117,7 +118,7 @@ export default function CatalogoBarberosPage() {
                 lineHeight: 1.5,
               }}
             >
-              Elegí a tu barbero y entrá a su perfil para ver servicios y reservar
+              Elige tu barbero y entra a su perfil para ver servicios y reservar
               turno.
             </p>
           </div>
@@ -151,15 +152,17 @@ export default function CatalogoBarberosPage() {
           )}
           {!loading &&
             barbers.map((b, index) => {
-              const nombre =
+              const nombrePersona =
                 b.profiles?.nombre?.trim() || b.slug.replace(/-/g, " ");
+              const nombre =
+                b.nombre_barberia?.trim() || nombrePersona;
               const nombreDisplay = nombre.toUpperCase();
               const specialty =
                 b.especialidades?.length > 0
                   ? b.especialidades.join(" · ")
                   : "Fade · Diseños · Barba";
               const bg = CARD_BGS[index % CARD_BGS.length];
-              const ini = initialsFromNombre(nombre, b.slug);
+              const ini = initialsFromNombre(nombrePersona, b.slug);
 
               return (
                 <div
