@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Scissors, User, ChevronRight } from "lucide-react";
+import { Scissors, User, ChevronRight, Chrome } from "lucide-react";
 
 type Role = "cliente" | "barbero";
 
@@ -21,6 +21,16 @@ export default function RegistroPage() {
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [slugFinalSent, setSlugFinalSent] = useState("");
+
+  async function handleGoogle() {
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`,
+      },
+    });
+    if (oauthError) setError(oauthError.message);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -155,7 +165,7 @@ export default function RegistroPage() {
         </h1>
         <p style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.9rem", letterSpacing: "0.1em", color: "var(--gray-light)", marginBottom: "2.5rem" }}>
           ¿Ya tienes cuenta?{" "}
-          <Link href="/auth/login" style={{ color: "var(--acid)", textDecoration: "none" }}>
+          <Link href={`/auth/login${redirectTo !== "/" ? `?redirect=${encodeURIComponent(redirectTo)}` : ""}`} style={{ color: "var(--acid)", textDecoration: "none" }}>
             Inicia sesión
           </Link>
         </p>
@@ -195,6 +205,39 @@ export default function RegistroPage() {
               </button>
             );
           })}
+        </div>
+
+        {/* Google */}
+        <button
+          type="button"
+          onClick={handleGoogle}
+          style={{
+            width: "100%",
+            background: "var(--dark2)",
+            border: "1px solid var(--gray)",
+            padding: "0.9rem",
+            color: "var(--white)",
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontWeight: 700,
+            fontSize: "0.85rem",
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.6rem",
+            marginBottom: "1.25rem",
+          }}
+        >
+          <Chrome size={16} color="var(--acid)" />
+          Continuar con Google
+        </button>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginBottom: "1.5rem" }}>
+          <div style={{ flex: 1, height: 1, background: "var(--gray)" }} />
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.7rem", letterSpacing: "0.2em", color: "var(--gray-light)", textTransform: "uppercase" }}>o</span>
+          <div style={{ flex: 1, height: 1, background: "var(--gray)" }} />
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
