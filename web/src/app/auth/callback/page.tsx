@@ -18,24 +18,32 @@ export default function AuthCallback() {
       const userId = session.user.id;
       const meta = session.user.user_metadata;
 
-      // Asegurar que el perfil existe (por si el trigger no disparó)
-      await supabase.from("profiles").upsert({
-        id: userId,
-        role: meta.role ?? "cliente",
-        nombre: meta.nombre ?? session.user.email,
-        telefono: meta.telefono ?? null,
-      });
+      // Verificar si ya tiene perfil
+      const { data: existingProfile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
 
-      if (meta.role === "barbero") {
-        const slugFinal = meta.slug ?? userId;
-        await supabase.from("barberos").upsert({
-          id: userId,
-          slug: slugFinal,
-        });
-        router.push(`/barbero/${slugFinal}/panel`);
-      } else {
-        router.push("/");
+      if (existingProfile) {
+        // Ya completó el perfil antes — redirigir según rol
+        if (existingProfile.role === "barbero") {
+          const { data: barbero } = await supabase
+            .from("barberos")
+            .select("slug")
+            .eq("id", userId)
+            .maybeSingle();
+          router.push(`/barbero/${barbero?.slug ?? userId}/panel`);
+        } else {
+          router.push("/");
+        }
+        return;
       }
+
+      // Usuario nuevo via OAuth — completar perfil
+      const nombreGoogle = meta.full_name ?? meta.name ?? "";
+      const params = new URLSearchParams({ nombre: nombreGoogle });
+      router.push(`/auth/completar-perfil?${params.toString()}`);
     });
   }, [router]);
 

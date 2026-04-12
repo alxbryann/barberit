@@ -40,10 +40,11 @@ export default function CatalogoBarberosPage() {
       setLoading(false);
       setFetchError("Tiempo de espera agotado. Recarga la página.");
     }, 8000);
-    supabase
-      .from("barberos")
-      .select("id, slug, especialidades, total_cortes, nombre_barberia, profiles(nombre)")
-      .then(({ data, error }) => {
+    async function fetchBarbers() {
+      try {
+        const { data, error } = await supabase
+          .from("barberos")
+          .select("id, slug, especialidades, total_cortes, nombre_barberia, profiles(nombre)");
         clearTimeout(timeout);
         if (error) {
           console.error("[barberos fetch error]", error);
@@ -51,14 +52,15 @@ export default function CatalogoBarberosPage() {
         } else if (data) {
           setBarbers(data as unknown as BarberRow[]);
         }
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         clearTimeout(timeout);
         console.error("[barberos fetch exception]", err);
         setFetchError(String(err));
+      } finally {
         setLoading(false);
-      });
+      }
+    }
+    fetchBarbers();
     return () => clearTimeout(timeout);
   }, []);
 
