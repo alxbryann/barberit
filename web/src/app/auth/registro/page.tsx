@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { Scissors, User, ChevronRight } from "lucide-react";
@@ -9,6 +9,8 @@ type Role = "cliente" | "barbero";
 
 export default function RegistroPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") ?? "/";
   const [role, setRole] = useState<Role>("cliente");
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -74,7 +76,7 @@ export default function RegistroPage() {
         }
         router.push(`/barbero/${slugFinal}/panel`);
       } else {
-        router.push("/");
+        router.push(redirectTo);
       }
     } else if (signUpData.user) {
       // Confirmación por correo: aún no hay sesión; el callback crea barberos al abrir el link

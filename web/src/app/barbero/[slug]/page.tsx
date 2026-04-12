@@ -181,11 +181,25 @@ export default function BarberProfile() {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      if (session?.user) setUser({ id: session.user.id, email: session.user.email ?? "" });
-      else setUser(null);
+      if (session?.user) {
+        setUser({ id: session.user.id, email: session.user.email ?? "" });
+        // Restaurar selección guardada antes del login
+        const draft = sessionStorage.getItem(`reserva_draft_${slug}`);
+        if (draft) {
+          try {
+            const { selectedService: s, selectedDay: d, selectedTime: t } = JSON.parse(draft);
+            if (s) setSelectedService(s);
+            if (d !== null && d !== undefined) setSelectedDay(d);
+            if (t) setSelectedTime(t);
+          } catch {}
+          sessionStorage.removeItem(`reserva_draft_${slug}`);
+        }
+      } else {
+        setUser(null);
+      }
     });
     return () => subscription.unsubscribe();
-  }, []);
+  }, [slug]);
 
   // Detectar reserva completada sin reseña para mostrar modal
   const barberoId = barbero?.id ?? null;
@@ -256,7 +270,15 @@ export default function BarberProfile() {
 
   async function handleConfirmar() {
     if (!selectedService || selectedDay === null || !selectedTime || !barbero) return;
-    if (!user) { router.push("/auth/login"); return; }
+    if (!user) {
+      // Guardar selección para restaurar después del login
+      sessionStorage.setItem(
+        `reserva_draft_${slug}`,
+        JSON.stringify({ selectedService, selectedDay, selectedTime })
+      );
+      router.push(`/auth/login?redirect=/barbero/${slug}`);
+      return;
+    }
 
     setReservaLoading(true);
     const d = DAYS[selectedDay];
@@ -276,6 +298,33 @@ export default function BarberProfile() {
       console.error("[reserva insert error]", insertError);
       setReservaLoading(false);
       return;
+    }
+
+    // Notificar por Telegram y Email (en paralelo)
+    const notifyPayload = {
+      barbero: barbero.nombre_barberia || barbero.nombre,
+      servicio: service?.label ?? selectedService,
+      fecha,
+      hora: selectedTime,
+      precio: service?.price ? service.price.toLocaleString("es-CO") : "—",
+      cliente: user.email,
+    };
+
+    try {
+      await Promise.all([
+        fetch("/api/notify-telegram", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(notifyPayload),
+        }),
+        fetch("/api/notify-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...notifyPayload, barberoId: barbero.id }),
+        }),
+      ]);
+    } catch (e) {
+      console.warn("[notify failed]", e);
     }
 
     setReservaLoading(false);
