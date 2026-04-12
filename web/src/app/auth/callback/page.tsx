@@ -1,14 +1,15 @@
 "use client";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Scissors } from "lucide-react";
 
 export default function AuthCallback() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get("redirect") ?? "/";
 
   useEffect(() => {
-    // Supabase maneja el token del URL automáticamente
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
         router.push("/auth/login");
@@ -26,7 +27,6 @@ export default function AuthCallback() {
         .maybeSingle();
 
       if (existingProfile) {
-        // Ya completó el perfil antes — redirigir según rol
         if (existingProfile.role === "barbero") {
           const { data: barbero } = await supabase
             .from("barberos")
@@ -35,17 +35,18 @@ export default function AuthCallback() {
             .maybeSingle();
           router.push(`/barbero/${barbero?.slug ?? userId}/panel`);
         } else {
-          router.push("/");
+          router.push(redirectTo);
         }
         return;
       }
 
-      // Usuario nuevo via OAuth — completar perfil
+      // Usuario nuevo via OAuth — completar perfil, pasar redirect para después
       const nombreGoogle = meta.full_name ?? meta.name ?? "";
       const params = new URLSearchParams({ nombre: nombreGoogle });
+      if (redirectTo !== "/") params.set("redirect", redirectTo);
       router.push(`/auth/completar-perfil?${params.toString()}`);
     });
-  }, [router]);
+  }, [router, redirectTo]);
 
   return (
     <div style={{ background: "var(--black)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "1.5rem" }}>

@@ -11,6 +11,7 @@ function CompletarPerfilForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  const redirectTo = searchParams.get("redirect") ?? "/";
   const [role, setRole] = useState<Role>("cliente");
   const [nombre, setNombre] = useState(searchParams.get("nombre") ?? "");
   const [telefono, setTelefono] = useState("");
@@ -64,7 +65,7 @@ function CompletarPerfilForm() {
       }
       router.push(`/barbero/${slugFinal}/panel`);
     } else {
-      router.push("/");
+      router.push(redirectTo);
     }
   }
 
