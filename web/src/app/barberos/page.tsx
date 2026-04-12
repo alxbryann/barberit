@@ -32,16 +32,34 @@ function initialsFromNombre(nombre: string, slug: string) {
 export default function CatalogoBarberosPage() {
   const [barbers, setBarbers] = useState<BarberRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      setLoading(false);
+      setFetchError("Tiempo de espera agotado. Recarga la página.");
+    }, 8000);
     supabase
       .from("barberos")
       .select("id, slug, especialidades, total_cortes, nombre_barberia, profiles(nombre)")
       .then(({ data, error }) => {
-        if (!error && data) setBarbers(data as unknown as BarberRow[]);
+        clearTimeout(timeout);
+        if (error) {
+          console.error("[barberos fetch error]", error);
+          setFetchError(error.message);
+        } else if (data) {
+          setBarbers(data as unknown as BarberRow[]);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        console.error("[barberos fetch exception]", err);
+        setFetchError(String(err));
         setLoading(false);
       });
+    return () => clearTimeout(timeout);
   }, []);
 
   return (
@@ -286,7 +304,21 @@ export default function CatalogoBarberosPage() {
               );
             })}
 
-          {!loading && barbers.length === 0 && (
+          {!loading && fetchError && (
+            <div
+              style={{
+                gridColumn: "1 / -1",
+                background: "var(--black)",
+                padding: "3rem",
+                textAlign: "center",
+                fontFamily: "'Barlow', sans-serif",
+                color: "#ff4444",
+              }}
+            >
+              Error: {fetchError}
+            </div>
+          )}
+          {!loading && !fetchError && barbers.length === 0 && (
             <div
               style={{
                 gridColumn: "1 / -1",

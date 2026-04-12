@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Menu, X, User, LogOut } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 const navLinks: { label: string; href: string }[] = [
@@ -14,6 +15,7 @@ const navLinks: { label: string; href: string }[] = [
 type SessionUser = { nombre: string; role: string; barberoSlug?: string };
 
 export default function Navbar() {
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const [sessionUser, setSessionUser] = useState<SessionUser | null>(null);
@@ -31,25 +33,25 @@ export default function Navbar() {
   }, [open]);
 
   useEffect(() => {
-    async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setSessionUser(null); setAuthReady(true); return; }
+    async function loadUser(userId: string | undefined) {
+      if (!userId) { setSessionUser(null); setAuthReady(true); return; }
       const { data: profile } = await supabase
         .from("profiles")
         .select("nombre, role")
-        .eq("id", user.id)
+        .eq("id", userId)
         .single();
       if (!profile) { setSessionUser(null); setAuthReady(true); return; }
       let barberoSlug: string | undefined;
       if (profile.role === "barbero") {
-        const { data: b } = await supabase.from("barberos").select("slug").eq("id", user.id).single();
+        const { data: b } = await supabase.from("barberos").select("slug").eq("id", userId).single();
         barberoSlug = b?.slug;
       }
       setSessionUser({ nombre: profile.nombre, role: profile.role, barberoSlug });
       setAuthReady(true);
     }
-    loadUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => loadUser());
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      loadUser(session?.user?.id);
+    });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -57,6 +59,7 @@ export default function Navbar() {
     await supabase.auth.signOut();
     setSessionUser(null);
     setOpen(false);
+    router.push("/");
   }
 
   return (

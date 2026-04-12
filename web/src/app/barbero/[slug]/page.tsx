@@ -114,56 +114,72 @@ export default function BarberProfile() {
 
   useEffect(() => {
     if (!slug) return;
-    supabase
-      .from("barberos")
-      .select("id, slug, especialidades, rating, total_cortes, bio, video_url, nombre_barberia, profiles(nombre)")
-      .eq("slug", slug)
-      .single()
-      .then(({ data }) => {
-        if (!data) { setLoading(false); return; }
-        const d = data as unknown as {
-          id: string; slug: string; especialidades: string[]; rating: number;
-          total_cortes: number; bio: string; video_url: string;
-          nombre_barberia: string | null;
-          profiles: { nombre: string } | null;
-        };
 
-        // Cargar servicios reales
-        supabase.from("servicios").select("*").eq("barbero_id", d.id).eq("activo", true).then(({ data: svcs }) => {
-          if (svcs && svcs.length > 0) {
-            setServices(svcs.map((s) => ({ id: s.id, label: s.nombre, price: s.precio, duration: `${s.duracion_min} min`, icon: s.icono })));
-          }
-        });
+    async function fetchBarbero() {
+      let { data, error } = await supabase
+        .from("barberos")
+        .select("id, slug, especialidades, rating, total_cortes, bio, video_url, nombre_barberia, profiles(nombre)")
+        .eq("slug", slug)
+        .maybeSingle();
 
-        setBarbero({
-          id: d.id,
-          slug: d.slug,
-          nombre: d.profiles?.nombre ?? slug,
-          nombre_barberia: d.nombre_barberia ?? null,
-          especialidades: d.especialidades ?? [],
-          rating: d.rating ?? 5.0,
-          total_cortes: d.total_cortes ?? 0,
-          desde_año: new Date().getFullYear(),
-          bio: d.bio,
-          video_url: d.video_url,
-        });
+      if (error) console.error("[barbero fetch error]", error);
 
-        // Cargar galería
-        supabase
-          .from("galeria_cortes")
-          .select("id, imagen_url, tipo")
-          .eq("barbero_id", d.id)
-          .order("created_at", { ascending: false })
-          .then(({ data: gal }) => { if (gal) setGaleria(gal); });
+      // Retry una vez ante fallo de red o resultado vacío inesperado
+      if (!data) {
+        await new Promise((r) => setTimeout(r, 600));
+        const { data: retry, error: retryError } = await supabase
+          .from("barberos")
+          .select("id, slug, especialidades, rating, total_cortes, bio, video_url, nombre_barberia, profiles(nombre)")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (retryError) console.error("[barbero fetch retry error]", retryError);
+        data = retry;
+      }
 
-        setLoading(false);
+      if (!data) { setLoading(false); return; }
+
+      const d = data as unknown as {
+        id: string; slug: string; especialidades: string[]; rating: number;
+        total_cortes: number; bio: string; video_url: string;
+        nombre_barberia: string | null;
+        profiles: { nombre: string } | null;
+      };
+
+      // Cargar servicios reales
+      supabase.from("servicios").select("*").eq("barbero_id", d.id).eq("activo", true).then(({ data: svcs }) => {
+        if (svcs && svcs.length > 0) {
+          setServices(svcs.map((s) => ({ id: s.id, label: s.nombre, price: s.precio, duration: `${s.duracion_min} min`, icon: s.icono })));
+        }
       });
+
+      setBarbero({
+        id: d.id,
+        slug: d.slug,
+        nombre: d.profiles?.nombre ?? slug,
+        nombre_barberia: d.nombre_barberia ?? null,
+        especialidades: d.especialidades ?? [],
+        rating: d.rating ?? 5.0,
+        total_cortes: d.total_cortes ?? 0,
+        desde_año: new Date().getFullYear(),
+        bio: d.bio,
+        video_url: d.video_url,
+      });
+
+      // Cargar galería
+      supabase
+        .from("galeria_cortes")
+        .select("id, imagen_url, tipo")
+        .eq("barbero_id", d.id)
+        .order("created_at", { ascending: false })
+        .then(({ data: gal }) => { if (gal) setGaleria(gal); });
+
+      setLoading(false);
+    }
+
+    fetchBarbero();
   }, [slug]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) setUser({ id: data.user.id, email: data.user.email ?? "" });
-    });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) setUser({ id: session.user.id, email: session.user.email ?? "" });
       else setUser(null);
@@ -246,22 +262,21 @@ export default function BarberProfile() {
     const d = DAYS[selectedDay];
     const fecha = d.fullDate.toISOString().split("T")[0];
 
-    const { data: perfCliente } = await supabase
-      .from("profiles")
-      .select("nombre")
-      .eq("id", user.id)
-      .maybeSingle();
-    const clienteNombre = (perfCliente as { nombre?: string } | null)?.nombre?.trim() || null;
-
-    await supabase.from("reservas").insert({
+    const { error: insertError } = await supabase.from("reservas").insert({
       cliente_id: user.id,
       barbero_id: barbero.id,
+      servicio_id: service?.id ?? null,
       fecha,
       hora: selectedTime,
-      precio: service?.price,
+      precio: service?.price ?? null,
       estado: "pendiente",
-      cliente_nombre: clienteNombre,
     });
+
+    if (insertError) {
+      console.error("[reserva insert error]", insertError);
+      setReservaLoading(false);
+      return;
+    }
 
     setReservaLoading(false);
     setConfirmed(true);
