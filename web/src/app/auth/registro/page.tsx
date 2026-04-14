@@ -1,16 +1,17 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Scissors, User, ChevronRight, Chrome } from "lucide-react";
+import { Scissors, User, ChevronRight, Globe } from "lucide-react";
 
 type Role = "cliente" | "barbero";
 
-export default function RegistroPage() {
+function RegistroForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") ?? "/";
+  const rawRedirect = searchParams.get("redirect") ?? "/";
+  const redirectTo = rawRedirect.startsWith("http") ? new URL(rawRedirect).pathname : rawRedirect;
   const [role, setRole] = useState<Role>("cliente");
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -230,7 +231,7 @@ export default function RegistroPage() {
             marginBottom: "1.25rem",
           }}
         >
-          <Chrome size={16} color="var(--acid)" />
+          <Globe size={16} color="var(--acid)" />
           Continuar con Google
         </button>
 
@@ -297,6 +298,14 @@ export default function RegistroPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function RegistroPage() {
+  return (
+    <Suspense>
+      <RegistroForm />
+    </Suspense>
   );
 }
 

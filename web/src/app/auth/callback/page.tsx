@@ -1,13 +1,14 @@
 "use client";
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { Scissors } from "lucide-react";
 
-export default function AuthCallback() {
+function AuthCallbackInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") ?? "/";
+  const rawRedirect = searchParams.get("redirect") ?? "/";
+  const redirectTo = rawRedirect.startsWith("http") ? new URL(rawRedirect).pathname : rawRedirect;
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -60,5 +61,13 @@ export default function AuthCallback() {
         Verificando cuenta...
       </p>
     </div>
+  );
+}
+
+export default function AuthCallback() {
+  return (
+    <Suspense>
+      <AuthCallbackInner />
+    </Suspense>
   );
 }

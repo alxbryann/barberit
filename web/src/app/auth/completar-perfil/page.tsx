@@ -11,7 +11,8 @@ function CompletarPerfilForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const redirectTo = searchParams.get("redirect") ?? "/";
+  const rawRedirect = searchParams.get("redirect") ?? "/";
+  const redirectTo = rawRedirect.startsWith("http") ? new URL(rawRedirect).pathname : rawRedirect;
   const [role, setRole] = useState<Role>("cliente");
   const [nombre, setNombre] = useState(searchParams.get("nombre") ?? "");
   const [telefono, setTelefono] = useState("");
